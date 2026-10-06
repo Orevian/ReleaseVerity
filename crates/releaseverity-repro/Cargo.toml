@@ -1,0 +1,21 @@
+[package]
+name = "releaseverity-repro"
+description = "ReleaseVerity Repro Engine: source, artifact, provenance, SBOM and reproducibility verification"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+releaseverity-core = { path = "../releaseverity-core" }
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+hex.workspace = true
+sha2.workspace = true
+zip = { version = "2", default-features = false, features = ["deflate"] }
+goblin = { version = "0.9", default-features = false, features = ["std", "pe32", "pe64", "elf32", "elf64", "endian_fd"] }
+base64 = "0.22"
+chrono.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
