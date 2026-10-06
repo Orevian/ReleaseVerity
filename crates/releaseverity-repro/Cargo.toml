@@ -13,7 +13,7 @@ serde_json.workspace = true
 hex.workspace = true
 sha2.workspace = true
 zip = { version = "2", default-features = false, features = ["deflate"] }
-goblin = { version = "0.9", default-features = false, features = ["std", "pe32", "pe64", "elf32", "elf64", "endian_fd"] }
+goblin = { version = "0.10", default-features = false, features = ["std", "pe32", "pe64", "elf32", "elf64", "endian_fd"] }
 base64 = "0.22"
 chrono.workspace = true
 
