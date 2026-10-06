@@ -1,0 +1,398 @@
+import { Theme, Tr } from "../theme.slint";
+import { AppState, RunRow, ProjectRow, EnvRow, ToolRow, ArtifactRow, ReportRow } from "../state.slint";
+import { Panel, Button, IconButton, ScoreBar, VerdictBadge, Badge, SectionLabel, Divider, EmptyState, Mono, Icon, TextField } from "../widgets.slint";
+import { RunTable, PageHeader } from "common.slint";
+import { ScrollView } from "std-widgets.slint";
+
+// ---------------------------------------------------------------------------
+// Runs and releases share one table.
+// ---------------------------------------------------------------------------
+
+export component RunsPage inherits Rectangle {
+    in property <[RunRow]> rows;
+    in property <string> title;
+    in property <string> subtitle;
+    background: Theme.bg;
+    ScrollView {
+        content-width: self.visible-width;
+        VerticalLayout {
+            padding: 28px;
+            spacing: 18px;
+            alignment: start;
+            PageHeader {
+                title: root.title;
+                subtitle: root.subtitle;
+                Button {
+                    icon: @image-url("../icons/refresh.svg");
+                    text: Tr.t("action.refresh");
+                    clicked => { AppState.refresh(); }
+                }
+                Button {
+                    text: Tr.t("action.new-verification");
+                    icon: @image-url("../icons/plus.svg");
+                    primary: true;
+                    clicked => { AppState.navigate(11); }
+                }
+            }
+            RunTable {
+                rows: root.rows;
+                empty-title: Tr.t("dash.empty.title");
+                empty-body: Tr.t("dash.empty.body");
+                new-verification => { AppState.navigate(11); }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Projects
+// ---------------------------------------------------------------------------
+
+export component ProjectsPage inherits Rectangle {
+    background: Theme.bg;
+    ScrollView {
+        content-width: self.visible-width;
+        VerticalLayout {
+            padding: 28px;
+            spacing: 18px;
+            alignment: start;
+            PageHeader {
+                title: Tr.t("nav.projects");
+                subtitle: Tr.t("projects.subtitle");
+                Button {
+                    text: Tr.t("projects.add");
+                    icon: @image-url("../icons/plus.svg");
+                    primary: true;
+                    clicked => { AppState.proj-form-open = !AppState.proj-form-open; }
+                }
+            }
+
+            if AppState.proj-form-open: Panel {
+                VerticalLayout {
+                    padding: 18px;
+                    spacing: 12px;
+                    SectionLabel { text: Tr.t("projects.new"); }
+                    HorizontalLayout {
+                        spacing: 12px;
+                        VerticalLayout {
+                            spacing: 5px;
+                            width: 240px;
+                            Text { text: Tr.t("projects.name"); color: Theme.muted; font-size: 12px; }
+                            TextField { text <=> AppState.proj-name; placeholder: "Astra Assistant"; }
+                        }
+                        VerticalLayout {
+                            spacing: 5px;
+                            horizontal-stretch: 1;
+                            Text { text: Tr.t("projects.repo"); color: Theme.muted; font-size: 12px; }
+                            HorizontalLayout {
+                                spacing: 8px;
+                                TextField { text <=> AppState.proj-repo; placeholder: "https://github.com/owner/repo  ·  C:\\path\\to\\repo"; mono: true; }
+                                Button { icon: @image-url("../icons/folder-open.svg"); text: Tr.t("action.browse"); clicked => { AppState.project-browse(); } }
+                            }
+                        }
+                        VerticalLayout {
+                            spacing: 5px;
+                            width: 120px;
+                            Text { text: Tr.t("projects.branch"); color: Theme.muted; font-size: 12px; }
+                            TextField { text <=> AppState.proj-branch; mono: true; }
+                        }
+                    }
+                    if AppState.proj-error != "": Text { text: AppState.proj-error; color: Theme.fail; font-size: 12px; wrap: word-wrap; }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        alignment: end;
+                        Button { text: Tr.t("action.cancel"); clicked => { AppState.proj-form-open = false; } }
+                        Button { text: Tr.t("action.save"); primary: true; clicked => { AppState.project-save(); } }
+                    }
+                }
+            }
+
+            Panel {
+                VerticalLayout {
+                    if AppState.projects.length > 0: Rectangle {
+                        height: 32px;
+                        background: Theme.panel-alt;
+                        border-radius: Theme.radius;
+                        HorizontalLayout {
+                            padding-left: 16px;
+                            padding-right: 12px;
+                            spacing: 12px;
+                            SectionLabel { text: Tr.t("col.project"); horizontal-stretch: 2; vertical-alignment: center; }
+                            SectionLabel { text: Tr.t("col.release"); width: 90px; vertical-alignment: center; }
+                            SectionLabel { text: Tr.t("col.score"); width: 110px; vertical-alignment: center; }
+                            SectionLabel { text: Tr.t("col.status"); width: 160px; vertical-alignment: center; }
+                            SectionLabel { text: Tr.t("col.issues"); width: 70px; vertical-alignment: center; }
+                            SectionLabel { text: Tr.t("col.last-run"); width: 120px; vertical-alignment: center; }
+                            Rectangle { width: 72px; }
+                        }
+                    }
+                    if AppState.projects.length == 0: EmptyState {
+                        icon: @image-url("../icons/folder.svg");
+                        title: Tr.t("projects.empty.title");
+                        body: Tr.t("projects.empty.body");
+                        action: Tr.t("projects.add");
+                        clicked => { AppState.proj-form-open = true; }
+                    }
+                    for p[i] in AppState.projects: Rectangle {
+                        height: 52px;
+                        background: pa.has-hover ? Theme.hover : transparent;
+                        pa := TouchArea { }
+                        if i > 0: Divider { y: 0px; }
+                        HorizontalLayout {
+                            padding-left: 16px;
+                            padding-right: 12px;
+                            spacing: 12px;
+                            VerticalLayout {
+                                horizontal-stretch: 2;
+                                alignment: center;
+                                spacing: 2px;
+                                Text { text: p.name; color: Theme.text; font-size: 13px; font-weight: 600; overflow: elide; }
+                                Text { text: p.repo + "  ·  " + p.branch; color: Theme.muted; font-size: 11px; font-family: Theme.mono; overflow: elide; }
+                            }
+                            Mono { text: p.latest-release; width: 90px; vertical-alignment: center; overflow: elide; }
+                            ScoreBar { width: 110px; score: p.score; verdict: p.verdict; y: (parent.height - self.height) / 2; }
+                            Rectangle {
+                                width: 160px;
+                                HorizontalLayout {
+                                    alignment: start;
+                                    VerdictBadge { text: p.verdict-text; verdict: p.verdict; y: (parent.height - self.height) / 2; }
+                                }
+                            }
+                            HorizontalLayout {
+                                width: 70px;
+                                spacing: 8px;
+                                alignment: start;
+                                Icon { source: @image-url("../icons/alert.svg"); size: 13px; tint: p.warnings > 0 ? Theme.warn : Theme.muted; y: (parent.height - self.height) / 2; }
+                                Text { text: p.warnings; color: p.warnings > 0 ? Theme.warn : Theme.muted; font-size: 12px; vertical-alignment: center; }
+                                Icon { source: @image-url("../icons/x.svg"); size: 13px; tint: p.failures > 0 ? Theme.fail : Theme.muted; y: (parent.height - self.height) / 2; }
+                                Text { text: p.failures; color: p.failures > 0 ? Theme.fail : Theme.muted; font-size: 12px; vertical-alignment: center; }
+                            }
+                            Text { text: p.last-run; color: Theme.muted; font-size: 12px; width: 120px; vertical-alignment: center; overflow: elide; }
+                            HorizontalLayout {
+                                width: 72px;
+                                spacing: 4px;
+                                alignment: end;
+                                IconButton {
+                                    icon: @image-url("../icons/play.svg");
+                                    y: (parent.height - self.height) / 2;
+                                    clicked => { AppState.verify-project(p.name); }
+                                }
+                                IconButton {
+                                    icon: @image-url("../icons/trash.svg");
+                                    y: (parent.height - self.height) / 2;
+                                    clicked => { AppState.remove-project(p.name); }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Environments
+// ---------------------------------------------------------------------------
+
+export component EnvironmentsPage inherits Rectangle {
+    background: Theme.bg;
+    ScrollView {
+        content-width: self.visible-width;
+        VerticalLayout {
+            padding: 28px;
+            spacing: 18px;
+            alignment: start;
+            PageHeader {
+                title: Tr.t("nav.environments");
+                subtitle: Tr.t("env.subtitle");
+                Button { icon: @image-url("../icons/refresh.svg"); text: Tr.t("action.refresh"); clicked => { AppState.refresh(); } }
+            }
+            VerticalLayout {
+                spacing: 8px;
+                SectionLabel { text: Tr.t("env.backends"); }
+                Panel {
+                    VerticalLayout {
+                        for e[i] in AppState.envs: Rectangle {
+                            height: 58px;
+                            if i > 0: Divider { y: 0px; }
+                            HorizontalLayout {
+                                padding-left: 16px;
+                                padding-right: 16px;
+                                spacing: 14px;
+                                Rectangle {
+                                    width: 16px;
+                                    Icon {
+                                        source: e.available ? @image-url("../icons/check.svg") : @image-url("../icons/minus.svg");
+                                        tint: e.available ? Theme.pass : Theme.muted;
+                                        y: (parent.height - self.height) / 2;
+                                    }
+                                }
+                                VerticalLayout {
+                                    horizontal-stretch: 1;
+                                    alignment: center;
+                                    spacing: 3px;
+                                    HorizontalLayout {
+                                        spacing: 8px;
+                                        alignment: start;
+                                        Text { text: e.name; color: Theme.text; font-size: 13px; font-weight: 600; }
+                                        Mono { text: e.id; color: Theme.muted; font-size: 11px; }
+                                    }
+                                    Text { text: e.detail; color: Theme.muted; font-size: 12px; overflow: elide; }
+                                }
+                                Rectangle {
+                                    width: 130px;
+                                    HorizontalLayout {
+                                        alignment: end;
+                                        Badge {
+                                            text: e.isolation;
+                                            tone: e.isolation == "none" ? Theme.warn : Theme.accent;
+                                            y: (parent.height - self.height) / 2;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            VerticalLayout {
+                spacing: 8px;
+                SectionLabel { text: Tr.t("env.tools"); }
+                Panel {
+                    VerticalLayout {
+                        for t[i] in AppState.tools: Rectangle {
+                            height: 40px;
+                            if i > 0: Divider { y: 0px; }
+                            HorizontalLayout {
+                                padding-left: 16px;
+                                padding-right: 16px;
+                                spacing: 14px;
+                                Rectangle {
+                                    width: 16px;
+                                    Icon {
+                                        source: t.found ? @image-url("../icons/check.svg") : @image-url("../icons/minus.svg");
+                                        tint: t.found ? Theme.pass : Theme.muted;
+                                        y: (parent.height - self.height) / 2;
+                                    }
+                                }
+                                Mono { text: t.name; width: 70px; vertical-alignment: center; }
+                                Text { text: t.found ? t.version : Tr.t("env.not-found"); color: t.found ? Theme.text : Theme.muted; font-size: 12px; width: 230px; vertical-alignment: center; overflow: elide; }
+                                Text { text: t.purpose; color: Theme.muted; font-size: 12px; horizontal-stretch: 1; vertical-alignment: center; overflow: elide; }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Artifacts
+// ---------------------------------------------------------------------------
+
+export component ArtifactsPage inherits Rectangle {
+    background: Theme.bg;
+    ScrollView {
+        content-width: self.visible-width;
+        VerticalLayout {
+            padding: 28px;
+            spacing: 18px;
+            alignment: start;
+            PageHeader { title: Tr.t("nav.artifacts"); subtitle: Tr.t("artifacts.subtitle"); }
+            Panel {
+                VerticalLayout {
+                    if AppState.artifacts.length == 0: EmptyState {
+                        icon: @image-url("../icons/package.svg");
+                        title: Tr.t("artifacts.empty.title");
+                        body: Tr.t("artifacts.empty.body");
+                    }
+                    if AppState.artifacts.length > 0: Rectangle {
+                        height: 32px;
+                        background: Theme.panel-alt;
+                        border-radius: Theme.radius;
+                        HorizontalLayout {
+                            padding-left: 16px;
+                            padding-right: 12px;
+                            spacing: 12px;
+                            SectionLabel { text: Tr.t("col.artifact"); horizontal-stretch: 1; vertical-alignment: center; }
+                            SectionLabel { text: Tr.t("col.release"); width: 140px; vertical-alignment: center; }
+                            SectionLabel { text: Tr.t("col.kind"); width: 60px; vertical-alignment: center; }
+                            SectionLabel { text: Tr.t("col.size"); width: 80px; vertical-alignment: center; }
+                            SectionLabel { text: "SHA-256"; width: 250px; vertical-alignment: center; }
+                            Rectangle { width: 28px; }
+                        }
+                    }
+                    for a[i] in AppState.artifacts: Rectangle {
+                        height: 44px;
+                        if i > 0: Divider { y: 0px; }
+                        HorizontalLayout {
+                            padding-left: 16px;
+                            padding-right: 12px;
+                            spacing: 12px;
+                            Text { text: a.name; color: Theme.text; font-size: 13px; font-weight: 500; horizontal-stretch: 1; vertical-alignment: center; overflow: elide; }
+                            Text { text: a.project + " " + a.tag; color: Theme.muted; font-size: 12px; width: 140px; vertical-alignment: center; overflow: elide; }
+                            Text { text: a.kind; color: Theme.muted; font-size: 12px; width: 60px; vertical-alignment: center; }
+                            Text { text: a.size; color: Theme.muted; font-size: 12px; width: 80px; vertical-alignment: center; }
+                            Mono { text: a.sha256; width: 250px; vertical-alignment: center; overflow: elide; font-size: 11px; }
+                            IconButton {
+                                icon: @image-url("../icons/file.svg");
+                                y: (parent.height - self.height) / 2;
+                                clicked => { AppState.copy-text(a.sha256); }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Reports
+// ---------------------------------------------------------------------------
+
+export component ReportsPage inherits Rectangle {
+    background: Theme.bg;
+    ScrollView {
+        content-width: self.visible-width;
+        VerticalLayout {
+            padding: 28px;
+            spacing: 18px;
+            alignment: start;
+            PageHeader {
+                title: Tr.t("nav.reports");
+                subtitle: Tr.t("reports.subtitle");
+                Button { icon: @image-url("../icons/folder-open.svg"); text: Tr.t("reports.open-folder"); clicked => { AppState.open-folder("reports"); } }
+            }
+            Panel {
+                VerticalLayout {
+                    if AppState.reports.length == 0: EmptyState {
+                        icon: @image-url("../icons/file.svg");
+                        title: Tr.t("reports.empty.title");
+                        body: Tr.t("reports.empty.body");
+                    }
+                    for r[i] in AppState.reports: Rectangle {
+                        height: 46px;
+                        background: ta.has-hover ? Theme.hover : transparent;
+                        ta := TouchArea { }
+                        if i > 0: Divider { y: 0px; }
+                        HorizontalLayout {
+                            padding-left: 16px;
+                            padding-right: 12px;
+                            spacing: 12px;
+                            Text { text: r.project + "  " + r.tag; color: Theme.text; font-size: 13px; font-weight: 500; horizontal-stretch: 1; vertical-alignment: center; overflow: elide; }
+                            Rectangle {
+                                width: 60px;
+                                HorizontalLayout { alignment: start; Badge { text: r.format; y: (parent.height - self.height) / 2; } }
+                            }
+                            Text { text: r.created; color: Theme.muted; font-size: 12px; width: 130px; vertical-alignment: center; }
+                            Button { text: Tr.t("action.open"); icon: @image-url("../icons/external.svg"); y: (parent.height - self.height) / 2; clicked => { AppState.open-report(r.path); } }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
