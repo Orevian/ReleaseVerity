@@ -1,0 +1,155 @@
+import { Theme, Tr } from "theme.slint";
+import { AppState } from "state.slint";
+import { Icon } from "widgets.slint";
+import { Palette } from "std-widgets.slint";
+import { DashboardPage } from "pages/dashboard.slint";
+import { RunsPage, ProjectsPage, EnvironmentsPage, ArtifactsPage, ReportsPage } from "pages/lists.slint";
+import { DetailPage } from "pages/detail.slint";
+import { WizardPage } from "pages/wizard.slint";
+import { LivePage } from "pages/live.slint";
+import { ReproPage } from "pages/repro.slint";
+import { SettingsPage } from "pages/settings.slint";
+
+export { AppState, Theme, Tr, Palette }
+
+component NavItem inherits Rectangle {
+    in property <image> icon;
+    in property <string> label;
+    in property <bool> active;
+    in property <int> badge: 0;
+    callback clicked();
+    height: 34px;
+    border-radius: 6px;
+    background: active ? Theme.selected : (ta.has-hover ? Theme.hover : transparent);
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 10px;
+        Icon {
+            source: root.icon;
+            size: 16px;
+            tint: root.active ? Theme.accent : Theme.muted;
+            y: (parent.height - self.height) / 2;
+        }
+        Text {
+            text: root.label;
+            color: root.active ? Theme.text : Theme.muted;
+            font-size: 13px;
+            font-weight: root.active ? 600 : 400;
+            vertical-alignment: center;
+        }
+    }
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            root.clicked();
+        }
+    }
+}
+
+export component MainWindow inherits Window {
+    title: "ReleaseVerity";
+    icon: @image-url("icons/shield.svg");
+    preferred-width: 1320px;
+    preferred-height: 820px;
+    min-width: 1100px;
+    min-height: 660px;
+    background: Theme.bg;
+    default-font-family: "Segoe UI";
+    default-font-size: 13px;
+
+    // Which sidebar entry is highlighted for the current page.
+    property <int> nav: AppState.page == 10 || AppState.page == 13 ? 2 : AppState.page == 11 || AppState.page == 12 ? 3 : AppState.page;
+
+    HorizontalLayout {
+        Rectangle {
+            width: 228px;
+            background: Theme.sidebar;
+            Rectangle {
+                x: parent.width - 1px;
+                width: 1px;
+                background: Theme.border;
+            }
+            VerticalLayout {
+                padding: 14px;
+                padding-top: 18px;
+                spacing: 2px;
+                HorizontalLayout {
+                    padding-left: 8px;
+                    padding-bottom: 18px;
+                    spacing: 9px;
+                    Rectangle {
+                        width: 24px;
+                        height: 24px;
+                        border-radius: 6px;
+                        background: Theme.accent;
+                        Icon {
+                            source: @image-url("icons/shield.svg");
+                            tint: Theme.accent-text;
+                            size: 15px;
+                            x: 4.5px;
+                            y: 4.5px;
+                        }
+                    }
+                    VerticalLayout {
+                        alignment: center;
+                        Text { text: "ReleaseVerity"; color: Theme.text; font-size: 15px; font-weight: 700; }
+                    }
+                }
+                NavItem { icon: @image-url("icons/dashboard.svg"); label: Tr.t("nav.dashboard"); active: root.nav == 0; clicked => { AppState.navigate(0); } }
+                NavItem { icon: @image-url("icons/folder.svg"); label: Tr.t("nav.projects"); active: root.nav == 1; clicked => { AppState.navigate(1); } }
+                NavItem { icon: @image-url("icons/tag.svg"); label: Tr.t("nav.releases"); active: root.nav == 2; clicked => { AppState.navigate(2); } }
+                NavItem { icon: @image-url("icons/shield.svg"); label: Tr.t("nav.runs"); active: root.nav == 3; clicked => { AppState.navigate(3); } }
+                NavItem { icon: @image-url("icons/server.svg"); label: Tr.t("nav.environments"); active: root.nav == 4; clicked => { AppState.navigate(4); } }
+                NavItem { icon: @image-url("icons/package.svg"); label: Tr.t("nav.artifacts"); active: root.nav == 5; clicked => { AppState.navigate(5); } }
+                NavItem { icon: @image-url("icons/file.svg"); label: Tr.t("nav.reports"); active: root.nav == 6; clicked => { AppState.navigate(6); } }
+                Rectangle { vertical-stretch: 1; }
+                NavItem { icon: @image-url("icons/settings.svg"); label: Tr.t("nav.settings"); active: root.nav == 7; clicked => { AppState.navigate(7); } }
+                Text {
+                    text: "v" + AppState.version;
+                    color: Theme.muted;
+                    font-size: 11px;
+                    font-family: Theme.mono;
+                    horizontal-alignment: left;
+                }
+            }
+        }
+
+        Rectangle {
+            horizontal-stretch: 1;
+            background: Theme.bg;
+            if AppState.page == 0: DashboardPage { }
+            if AppState.page == 1: ProjectsPage { }
+            if AppState.page == 2: RunsPage { rows: AppState.releases; title: Tr.t("nav.releases"); subtitle: Tr.t("releases.subtitle"); }
+            if AppState.page == 3: RunsPage { rows: AppState.runs; title: Tr.t("nav.runs"); subtitle: Tr.t("runs.subtitle"); }
+            if AppState.page == 4: EnvironmentsPage { }
+            if AppState.page == 5: ArtifactsPage { }
+            if AppState.page == 6: ReportsPage { }
+            if AppState.page == 7: SettingsPage { }
+            if AppState.page == 10: DetailPage { }
+            if AppState.page == 11: WizardPage { }
+            if AppState.page == 12: LivePage { }
+            if AppState.page == 13: ReproPage { }
+            if AppState.toast != "": Rectangle {
+                x: parent.width - self.width - 24px;
+                y: parent.height - self.height - 24px;
+                width: min(420px, toast-text.preferred-width + 32px);
+                height: 40px;
+                border-radius: 6px;
+                background: Theme.panel-alt;
+                border-width: 1px;
+                border-color: Theme.border-strong;
+                toast-text := Text {
+                    x: 16px;
+                    text: AppState.toast;
+                    color: Theme.text;
+                    font-size: 13px;
+                    vertical-alignment: center;
+                    height: parent.height;
+                    overflow: elide;
+                    width: parent.width - 32px;
+                }
+            }
+        }
+    }
+}
