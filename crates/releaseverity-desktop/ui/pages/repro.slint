@@ -1,0 +1,178 @@
+import { Theme, Tr } from "../theme.slint";
+import { AppState, RegionRow } from "../state.slint";
+import { Panel, Button, IconButton, TextField, StatusGlyph, Badge, SectionLabel, Divider, Mono, Icon } from "../widgets.slint";
+import { ScrollView } from "std-widgets.slint";
+
+component PipeNode inherits Rectangle {
+    in property <string> title;
+    in property <string> detail;
+    in property <int> status;       // 0 unknown · 1 ok · 2 warn · 3 fail · 4 skipped · 5 error
+    height: 62px;
+    border-radius: Theme.radius;
+    border-width: 1px;
+    border-color: status == 0 || status == 4 ? Theme.border : Theme.status-color(status).with-alpha(0.55);
+    background: Theme.panel;
+    HorizontalLayout {
+        padding: 12px;
+        spacing: 10px;
+        Rectangle {
+            width: 18px;
+            StatusGlyph { status: root.status; y: (parent.height - self.height) / 2; }
+        }
+        VerticalLayout {
+            alignment: center;
+            spacing: 3px;
+            Text { text: root.title; color: Theme.text; font-size: 12px; font-weight: 700; }
+            Text { text: root.detail; color: Theme.muted; font-size: 11px; font-family: Theme.mono; overflow: elide; }
+        }
+    }
+}
+
+component Arrow inherits Rectangle {
+    height: 16px;
+    Rectangle { width: 1px; height: parent.height; background: Theme.border-strong; x: parent.width / 2; }
+    Icon {
+        source: @image-url("../icons/arrow-down.svg");
+        size: 12px;
+        tint: Theme.border-strong;
+        x: (parent.width - self.width) / 2;
+        y: parent.height - self.height;
+    }
+}
+
+export component ReproPage inherits Rectangle {
+    background: Theme.bg;
+    ScrollView {
+        content-width: self.visible-width;
+        VerticalLayout {
+            padding: 28px;
+            spacing: 18px;
+            alignment: start;
+            HorizontalLayout {
+                spacing: 8px;
+                IconButton { icon: @image-url("../icons/chevron.svg"); rotate: 180deg; clicked => { AppState.navigate(AppState.detail-id > 0 ? 10 : 2); } }
+                VerticalLayout {
+                    spacing: 3px;
+                    Text { text: Tr.t("repro.title"); color: Theme.text; font-size: 20px; font-weight: 600; }
+                    Text { text: Tr.t("repro.subtitle"); color: Theme.muted; font-size: 13px; }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: 18px;
+                // ---- build pipeline ---------------------------------------------
+                VerticalLayout {
+                    width: 250px;
+                    spacing: 0px;
+                    alignment: start;
+                    SectionLabel { text: Tr.t("repro.pipeline"); }
+                    Rectangle { height: 8px; }
+                    PipeNode { title: "SOURCE"; detail: AppState.pipe-text[0]; status: AppState.pipe-status[0]; }
+                    Arrow { }
+                    PipeNode { title: "COMMIT"; detail: AppState.pipe-text[1]; status: AppState.pipe-status[1]; }
+                    Arrow { }
+                    PipeNode { title: "BUILD ENVIRONMENT"; detail: AppState.pipe-text[2]; status: AppState.pipe-status[2]; }
+                    Arrow { }
+                    PipeNode { title: "BUILD"; detail: AppState.pipe-text[3]; status: AppState.pipe-status[3]; }
+                    Arrow { }
+                    PipeNode { title: "ARTIFACT"; detail: AppState.pipe-text[4]; status: AppState.pipe-status[4]; }
+                }
+
+                // ---- comparison --------------------------------------------------
+                VerticalLayout {
+                    horizontal-stretch: 1;
+                    spacing: 14px;
+                    Panel {
+                        VerticalLayout {
+                            padding: 18px;
+                            spacing: 12px;
+                            SectionLabel { text: Tr.t("repro.release-artifact"); }
+                            HorizontalLayout {
+                                spacing: 8px;
+                                TextField { text <=> AppState.repro-release; mono: true; placeholder: "C:\\path\\to\\release\\app.exe"; }
+                                Button { icon: @image-url("../icons/folder-open.svg"); text: Tr.t("action.browse"); clicked => { AppState.pick-file("release"); } }
+                            }
+                            if AppState.repro-release-hash != "": Text { text: "SHA256: " + AppState.repro-release-hash; color: Theme.muted; font-size: 11px; font-family: Theme.mono; wrap: word-wrap; }
+                            SectionLabel { text: Tr.t("repro.local-build"); }
+                            HorizontalLayout {
+                                spacing: 8px;
+                                TextField { text <=> AppState.repro-local; mono: true; placeholder: "C:\\path\\to\\local\\app.exe"; }
+                                Button { icon: @image-url("../icons/folder-open.svg"); text: Tr.t("action.browse"); clicked => { AppState.pick-file("local"); } }
+                            }
+                            if AppState.repro-local-hash != "": Text { text: "SHA256: " + AppState.repro-local-hash; color: Theme.muted; font-size: 11px; font-family: Theme.mono; wrap: word-wrap; }
+                            HorizontalLayout {
+                                spacing: 12px;
+                                alignment: start;
+                                Button {
+                                    text: Tr.t("repro.analyse");
+                                    icon: @image-url("../icons/git.svg");
+                                    primary: true;
+                                    enabled: !AppState.repro-busy && AppState.repro-release != "" && AppState.repro-local != "";
+                                    clicked => { AppState.repro-compare(); }
+                                }
+                                if AppState.repro-result != 0: Rectangle {
+                                    HorizontalLayout {
+                                        spacing: 8px;
+                                        StatusGlyph { status: AppState.repro-result; size: 18px; y: (parent.height - self.height) / 2; }
+                                        Text {
+                                            text: AppState.repro-result-text;
+                                            color: Theme.status-color(AppState.repro-result);
+                                            font-size: 15px;
+                                            font-weight: 700;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+                                }
+                            }
+                            if AppState.repro-message != "": Text { text: AppState.repro-message; color: Theme.muted; font-size: 12px; wrap: word-wrap; }
+                        }
+                    }
+
+                    if AppState.repro-regions.length > 0: Panel {
+                        VerticalLayout {
+                            padding: 18px;
+                            spacing: 8px;
+                            SectionLabel { text: Tr.t("repro.regions"); }
+                            for r in AppState.repro-regions: HorizontalLayout {
+                                spacing: 12px;
+                                height: 24px;
+                                Mono { text: r.name; width: 150px; vertical-alignment: center; overflow: elide; }
+                                Rectangle {
+                                    horizontal-stretch: 1;
+                                    Rectangle {
+                                        y: (parent.height - self.height) / 2;
+                                        height: 6px;
+                                        border-radius: 3px;
+                                        background: Theme.border;
+                                        Rectangle {
+                                            x: 0px;
+                                            width: parent.width * r.share-value / 100;
+                                            border-radius: 3px;
+                                            background: r.share-value > 50 ? Theme.fail : r.share-value > 5 ? Theme.warn : Theme.accent;
+                                        }
+                                    }
+                                }
+                                Text { text: r.share; color: Theme.text; font-size: 12px; font-weight: 600; width: 60px; horizontal-alignment: right; vertical-alignment: center; }
+                                Text { text: r.bytes + " B"; color: Theme.muted; font-size: 11px; width: 90px; horizontal-alignment: right; vertical-alignment: center; }
+                            }
+                            Text { text: Tr.t("repro.regions.note"); color: Theme.muted; font-size: 11px; wrap: word-wrap; }
+                        }
+                    }
+
+                    if AppState.repro-causes.length > 0: Panel {
+                        VerticalLayout {
+                            padding: 18px;
+                            spacing: 8px;
+                            SectionLabel { text: Tr.t("repro.causes"); }
+                            for c in AppState.repro-causes: HorizontalLayout {
+                                spacing: 8px;
+                                Text { text: "•"; color: Theme.warn; font-size: 13px; }
+                                Text { text: c; color: Theme.text; font-size: 13px; wrap: word-wrap; horizontal-stretch: 1; }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
