@@ -1,0 +1,17 @@
+[package]
+name = "releaseverity-shipcheck"
+description = "ReleaseVerity ShipCheck Engine: clean-environment installation and runtime testing"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+releaseverity-core = { path = "../releaseverity-core" }
+releaseverity-agent = { path = "../releaseverity-agent" }
+releaseverity-repro = { path = "../releaseverity-repro" }
+serde_json.workspace = true
+regex = { version = "1", default-features = false, features = ["std", "perf", "unicode"] }
+
+[dev-dependencies]
+tempfile.workspace = true
+zip = { version = "2", default-features = false, features = ["deflate"] }
