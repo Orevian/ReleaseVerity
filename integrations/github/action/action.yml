@@ -1,0 +1,122 @@
+name: "ReleaseVerity release verification"
+description: "Verify a release: git tag, release assets, checksums, signatures, provenance, SBOM, documentation and (optionally) installation and runtime. Fails the workflow when the release fails."
+author: "ReleaseVerity contributors"
+branding:
+  icon: shield
+  color: blue
+
+inputs:
+  release:
+    description: "Release tag to verify."
+    default: ${{ github.ref_name }}
+  repository:
+    description: "owner/name of the repository that holds the release."
+    default: ${{ github.repository }}
+  only:
+    description: "Comma-separated checks (source,assets,checksum,signature,provenance,sbom,docs,repro,…). Empty = all that apply."
+    default: ""
+  strict:
+    description: "Treat warnings as failures."
+    default: "false"
+  publish-check:
+    description: "Publish the verdict as a GitHub Check on the release commit."
+    default: "true"
+  report-formats:
+    description: "Report formats to write: any of html,json,markdown."
+    default: "json,html"
+  version:
+    description: "ReleaseVerity version to use (a release tag such as v0.1.0, or 'latest')."
+    default: "latest"
+  releaseverity-repository:
+    description: "Repository that publishes ReleaseVerity releases."
+    default: "Orevian/ReleaseVerity"
+  token:
+    description: "Token used to download ReleaseVerity, read the release and publish the check."
+    default: ${{ github.token }}
+
+outputs:
+  score:
+    description: "Release score (0-100)."
+    value: ${{ steps.verify.outputs.score }}
+  verdict:
+    description: "verified | verified_with_warnings | failed | inconclusive"
+    value: ${{ steps.verify.outputs.verdict }}
+  report-directory:
+    description: "Directory containing the generated reports."
+    value: ${{ steps.verify.outputs.report-directory }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install ReleaseVerity
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        VF_REPO: ${{ inputs.releaseverity-repository }}
+        VF_VERSION: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+        dest="$RUNNER_TEMP/releaseverity"
+        mkdir -p "$dest"
+        tag_args=()
+        if [ "$VF_VERSION" != "latest" ]; then tag_args=("$VF_VERSION"); fi
+        if [ "$RUNNER_OS" = "Windows" ]; then
+          gh release download "${tag_args[@]}" --repo "$VF_REPO" --pattern 'ReleaseVerity-*-portable-x64.zip' --dir "$dest" --clobber
+          # Verify what we downloaded against the published checksums before running it.
+          gh release download "${tag_args[@]}" --repo "$VF_REPO" --pattern 'SHA256SUMS' --dir "$dest" --clobber
+          (cd "$dest" && grep -F "$(ls ReleaseVerity-*-portable-x64.zip)" SHA256SUMS | sha256sum -c -)
+          (cd "$dest" && unzip -q -o ReleaseVerity-*-portable-x64.zip)
+          echo "$dest/ReleaseVerity/cli" >> "$GITHUB_PATH"
+          echo "RELEASEVERITY_BIN=$dest/ReleaseVerity/cli/releaseverity.exe" >> "$GITHUB_ENV"
+        else
+          gh release download "${tag_args[@]}" --repo "$VF_REPO" --pattern 'releaseverity-linux-x64*' --dir "$dest" --clobber
+          gh release download "${tag_args[@]}" --repo "$VF_REPO" --pattern 'SHA256SUMS' --dir "$dest" --clobber
+          (cd "$dest" && grep -F 'releaseverity-linux-x64' SHA256SUMS | sha256sum -c -)
+          chmod +x "$dest/releaseverity-linux-x64"
+          echo "RELEASEVERITY_BIN=$dest/releaseverity-linux-x64" >> "$GITHUB_ENV"
+        fi
+
+    - name: Verify release
+      id: verify
+      shell: bash
+      env:
+        RELEASEVERITY_GITHUB_TOKEN: ${{ inputs.token }}
+        RELEASEVERITY_HOME: ${{ runner.temp }}/releaseverity-data
+        IN_RELEASE: ${{ inputs.release }}
+        IN_REPO: ${{ inputs.repository }}
+        IN_ONLY: ${{ inputs.only }}
+        IN_STRICT: ${{ inputs.strict }}
+        IN_PUBLISH: ${{ inputs.publish-check }}
+        IN_FORMATS: ${{ inputs.report-formats }}
+      run: |
+        set -uo pipefail
+        out="$RUNNER_TEMP/releaseverity-reports"
+        mkdir -p "$out"
+        args=(verify --repo "https://github.com/$IN_REPO" --release "$IN_RELEASE" --report "$IN_FORMATS" --out "$out" --no-color --ascii)
+        [ -n "$IN_ONLY" ] && args+=(--only "$IN_ONLY")
+        [ "$IN_STRICT" = "true" ] && args+=(--strict)
+        [ "$IN_PUBLISH" = "true" ] && args+=(--publish)
+        "$RELEASEVERITY_BIN" "${args[@]}" | tee "$out/console.txt"
+        code=${PIPESTATUS[0]}
+
+        json="$(ls "$out"/releaseverity-run-*.json 2>/dev/null | head -n1 || true)"
+        if [ -n "$json" ] && command -v jq >/dev/null; then
+          echo "score=$(jq -r '.run.score // ""' "$json")" >> "$GITHUB_OUTPUT"
+          echo "verdict=$(jq -r '.run.verdict // ""' "$json")" >> "$GITHUB_OUTPUT"
+        fi
+        echo "report-directory=$out" >> "$GITHUB_OUTPUT"
+        {
+          echo '### ReleaseVerity release verification'
+          echo '```text'
+          sed -n '1,80p' "$out/console.txt"
+          echo '```'
+        } >> "$GITHUB_STEP_SUMMARY"
+        exit "$code"
+
+    - name: Upload reports
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: releaseverity-reports
+        path: ${{ runner.temp }}/releaseverity-reports
+        if-no-files-found: ignore
