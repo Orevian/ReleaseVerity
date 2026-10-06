@@ -1,0 +1,51 @@
+name: Verification issue
+description: A verification result looks wrong (false pass, false fail, wrong cause, missing detail).
+labels: [verification]
+body:
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What is wrong with the result?
+      options:
+        - A check passed but should have failed (false pass)
+        - A check failed but should have passed (false fail)
+        - The reported cause or suggestion is wrong
+        - A check could not run and the reason is unclear
+        - A translation is wrong or missing (English / Türkçe)
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: ReleaseVerity version
+    validations:
+      required: true
+  - type: input
+    id: check
+    attributes:
+      label: Check
+      placeholder: e.g. Checksum, Signature, Reproducible build, Smoke tests
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command or steps
+      description: The exact `releaseverity verify …` command, or the wizard choices. If the release is public, link it.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Result ReleaseVerity gave
+      description: Paste the check's summary, cause and evidence (JSON report → `run.results[]`).
+      render: json
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What is actually true, and how can it be confirmed independently?
+    validations:
+      required: true
