@@ -82,7 +82,7 @@ jobs:
           cat releaseverity-linux-x64.sha256 >> SHA256SUMS
           rm releaseverity-linux-x64.sha256
           sort -k2 -o SHA256SUMS SHA256SUMS
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           files: assets/*
           generate_release_notes: true
