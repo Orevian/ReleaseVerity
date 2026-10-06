@@ -1,0 +1,114 @@
+import { Theme, Tr } from "../theme.slint";
+import { AppState } from "../state.slint";
+import { Panel, Button, ScoreBar, SectionLabel, Divider } from "../widgets.slint";
+import { RunTable, PageHeader } from "common.slint";
+import { ScrollView } from "std-widgets.slint";
+
+component Stat inherits Panel {
+    in property <string> label;
+    in property <string> value;
+    in property <color> tone: Theme.text;
+    height: 78px;
+    horizontal-stretch: 1;
+    min-width: 0px;
+    VerticalLayout {
+        padding: 14px;
+        spacing: 4px;
+        alignment: center;
+        Text { text: root.value; color: root.tone; font-size: 26px; font-weight: 600; }
+        Text { text: root.label; color: Theme.muted; font-size: 12px; }
+    }
+}
+
+export component DashboardPage inherits Rectangle {
+    background: Theme.bg;
+    ScrollView {
+        content-width: self.visible-width;
+        VerticalLayout {
+            padding: 28px;
+            spacing: 20px;
+            alignment: start;
+
+            PageHeader {
+                title: Tr.t("nav.dashboard");
+                subtitle: Tr.t("app.tagline");
+                Button {
+                    text: Tr.t("action.new-verification");
+                    icon: @image-url("../icons/plus.svg");
+                    primary: true;
+                    clicked => {
+                        AppState.navigate(11);
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: 12px;
+                Stat { label: Tr.t("dash.projects"); value: AppState.projects-count; }
+                Stat { label: Tr.t("dash.verified"); value: AppState.verified-count; tone: Theme.pass; }
+                Stat { label: Tr.t("dash.failed"); value: AppState.failed-count; tone: AppState.failed-count > 0 ? Theme.fail : Theme.text; }
+                Stat { label: Tr.t("dash.warnings"); value: AppState.warning-count; tone: AppState.warning-count > 0 ? Theme.warn : Theme.text; }
+                Panel {
+                    horizontal-stretch: 2;
+                    height: 78px;
+                    HorizontalLayout {
+                        padding: 14px;
+                        padding-left: 18px;
+                        spacing: 18px;
+                        VerticalLayout {
+                            alignment: center;
+                            spacing: 4px;
+                            Text { text: Tr.t("dash.health"); color: Theme.muted; font-size: 12px; }
+                            HorizontalLayout {
+                                spacing: 4px;
+                                alignment: start;
+                                Text {
+                                    text: AppState.health < 0 ? "–" : AppState.health;
+                                    color: AppState.health < 0 ? Theme.muted : AppState.health >= 85 ? Theme.pass : AppState.health >= 60 ? Theme.warn : Theme.fail;
+                                    font-size: 26px;
+                                    font-weight: 600;
+                                }
+                                Text { text: "/ 100"; color: Theme.muted; font-size: 13px; y: 12px; }
+                            }
+                        }
+                        Rectangle {
+                            horizontal-stretch: 1;
+                            ScoreBar {
+                                y: (parent.height - self.height) / 2;
+                                width: parent.width;
+                                score: AppState.health;
+                                verdict: AppState.health >= 85 ? 1 : AppState.health >= 60 ? 2 : 3;
+                            }
+                        }
+                    }
+                }
+            }
+
+            VerticalLayout {
+                spacing: 8px;
+                HorizontalLayout {
+                    SectionLabel { text: Tr.t("dash.recent"); horizontal-stretch: 1; }
+                    Text {
+                        text: Tr.t("action.view-all");
+                        color: Theme.accent;
+                        font-size: 12px;
+                        TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => {
+                                AppState.navigate(3);
+                            }
+                        }
+                    }
+                }
+                RunTable {
+                    rows: AppState.recent-runs;
+                    empty-title: Tr.t("dash.empty.title");
+                    empty-body: Tr.t("dash.empty.body");
+                    new-verification => {
+                        AppState.navigate(11);
+                    }
+                }
+            }
+        }
+    }
+}
