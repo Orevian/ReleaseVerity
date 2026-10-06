@@ -1,0 +1,216 @@
+import { Theme, Tr } from "../theme.slint";
+import { AppState, CheckRow } from "../state.slint";
+import { Panel, Button, IconButton, StatusGlyph, Badge, VerdictBadge, SectionLabel, Divider, Mono, Icon } from "../widgets.slint";
+import { PageHeader } from "common.slint";
+import { ScrollView } from "std-widgets.slint";
+
+/// Environment Matrix: rows = install / launch / smoke / uninstall, columns = environments.
+/// Clicking a cell selects that check so its log and error are shown.
+component MatrixView inherits Panel {
+    VerticalLayout {
+        Rectangle {
+            height: 34px;
+            background: Theme.panel-alt;
+            border-radius: Theme.radius;
+            HorizontalLayout {
+                padding-left: 16px;
+                spacing: 0px;
+                Rectangle { width: 170px; SectionLabel { text: Tr.t("matrix.title"); vertical-alignment: center; } }
+                for e in AppState.matrix-envs: Rectangle {
+                    horizontal-stretch: 1;
+                    Text { text: e; color: Theme.muted; font-size: 12px; font-weight: 600; horizontal-alignment: center; vertical-alignment: center; overflow: elide; }
+                }
+            }
+        }
+        for row[ri] in AppState.matrix-rows: Rectangle {
+            height: 40px;
+            if ri > 0: Divider { y: 0px; }
+            HorizontalLayout {
+                padding-left: 16px;
+                Text { text: row.label; color: Theme.text; font-size: 13px; width: 170px; vertical-alignment: center; }
+                for st[ci] in row.status: Rectangle {
+                    horizontal-stretch: 1;
+                    background: row.result-index[ci] >= 0 && row.result-index[ci] == AppState.selected-index ? Theme.selected : (cell.has-hover && row.result-index[ci] >= 0 ? Theme.hover : transparent);
+                    StatusGlyph {
+                        status: st;
+                        size: 17px;
+                        x: (parent.width - self.width) / 2;
+                        y: (parent.height - self.height) / 2;
+                    }
+                    cell := TouchArea {
+                        mouse-cursor: row.result-index[ci] >= 0 ? MouseCursor.pointer : MouseCursor.default;
+                        clicked => {
+                            if (row.result-index[ci] >= 0) {
+                                AppState.select-check(row.result-index[ci]);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+component DetailBlock inherits VerticalLayout {
+    in property <string> label;
+    in property <string> body;
+    in property <bool> mono: false;
+    spacing: 4px;
+    if root.body != "": SectionLabel { text: root.label; }
+    if root.body != "": Text {
+        text: root.body;
+        color: Theme.text;
+        font-size: root.mono ? 11px : 13px;
+        font-family: root.mono ? Theme.mono : "";
+        wrap: word-wrap;
+    }
+}
+
+export component DetailPage inherits Rectangle {
+    background: Theme.bg;
+    HorizontalLayout {
+        // ---- left: summary + checks ---------------------------------------
+        ScrollView {
+            content-width: self.visible-width;
+            horizontal-stretch: 3;
+            VerticalLayout {
+                padding: 28px;
+                padding-right: 20px;
+                spacing: 18px;
+                alignment: start;
+
+                HorizontalLayout {
+                    spacing: 8px;
+                    IconButton {
+                        icon: @image-url("../icons/chevron.svg");
+                        rotate: 180deg;
+                        clicked => { AppState.navigate(2); }
+                    }
+                    VerticalLayout {
+                        horizontal-stretch: 1;
+                        spacing: 3px;
+                        Text { text: AppState.detail-title; color: Theme.text; font-size: 20px; font-weight: 600; overflow: elide; }
+                        Text { text: AppState.detail-subtitle; color: Theme.muted; font-size: 12px; font-family: Theme.mono; overflow: elide; }
+                    }
+                }
+
+                Panel {
+                    HorizontalLayout {
+                        padding: 18px;
+                        spacing: 22px;
+                        VerticalLayout {
+                            spacing: 2px;
+                            HorizontalLayout {
+                                spacing: 6px;
+                                alignment: start;
+                                Text {
+                                    text: AppState.detail-score < 0 ? "–" : AppState.detail-score;
+                                    color: AppState.detail-verdict == 1 ? Theme.pass : AppState.detail-verdict == 2 ? Theme.warn : AppState.detail-verdict == 3 ? Theme.fail : Theme.muted;
+                                    font-size: 38px;
+                                    font-weight: 700;
+                                }
+                                Text { text: "/ 100"; color: Theme.muted; font-size: 16px; y: 20px; }
+                            }
+                            VerdictBadge { text: AppState.detail-verdict-text; verdict: AppState.detail-verdict; width: self.preferred-width; }
+                        }
+                        VerticalLayout {
+                            horizontal-stretch: 1;
+                            alignment: center;
+                            spacing: 6px;
+                            Text { text: AppState.detail-meta; color: Theme.muted; font-size: 12px; wrap: word-wrap; }
+                        }
+                        VerticalLayout {
+                            alignment: center;
+                            spacing: 6px;
+                            Button { text: "HTML"; icon: @image-url("../icons/file.svg"); clicked => { AppState.generate-report(AppState.detail-id, "html"); } }
+                            HorizontalLayout {
+                                spacing: 6px;
+                                Button { text: "MD"; clicked => { AppState.generate-report(AppState.detail-id, "markdown"); } }
+                                Button { text: "JSON"; clicked => { AppState.generate-report(AppState.detail-id, "json"); } }
+                            }
+                        }
+                    }
+                }
+
+                if AppState.matrix-rows.length > 0: MatrixView { }
+
+                Panel {
+                    VerticalLayout {
+                        for r[i] in AppState.detail-rows: Rectangle {
+                            height: r.kind == 0 ? 34px : 40px;
+                            background: r.kind == 1 && r.index == AppState.selected-index ? Theme.selected : (ta.has-hover && r.kind == 1 ? Theme.hover : (r.kind == 0 ? Theme.panel-alt : transparent));
+                            border-radius: r.kind == 0 ? Theme.radius : 0px;
+                            if r.kind == 1 && i > 0: Divider { y: 0px; }
+                            if r.kind == 0: HorizontalLayout {
+                                padding-left: 16px;
+                                SectionLabel { text: r.title; vertical-alignment: center; }
+                            }
+                            if r.kind == 1: HorizontalLayout {
+                                padding-left: 16px;
+                                padding-right: 12px;
+                                spacing: 10px;
+                                Rectangle {
+                                    width: 16px;
+                                    StatusGlyph { status: r.status; y: (parent.height - self.height) / 2; }
+                                }
+                                Text { text: r.title; color: Theme.text; font-size: 13px; font-weight: 500; width: 190px; vertical-alignment: center; overflow: elide; }
+                                Text { text: r.summary; color: Theme.muted; font-size: 12px; horizontal-stretch: 1; vertical-alignment: center; overflow: elide; }
+                                if r.env != "": Badge { text: r.env; y: (parent.height - self.height) / 2; }
+                                Icon { source: @image-url("../icons/chevron.svg"); size: 13px; tint: Theme.muted; y: (parent.height - self.height) / 2; }
+                            }
+                            ta := TouchArea {
+                                mouse-cursor: r.kind == 1 ? MouseCursor.pointer : MouseCursor.default;
+                                clicked => {
+                                    if (r.kind == 1) {
+                                        AppState.select-check(r.index);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ---- right: selected check ------------------------------------------
+        Rectangle {
+            width: 440px;
+            background: Theme.sidebar;
+            Rectangle { x: 0px; width: 1px; background: Theme.border; }
+            ScrollView {
+                content-width: self.visible-width;
+                VerticalLayout {
+                    padding: 22px;
+                    spacing: 14px;
+                    alignment: start;
+                    if AppState.selected-index < 0: Text {
+                        text: Tr.t("detail.select");
+                        color: Theme.muted;
+                        font-size: 13px;
+                        wrap: word-wrap;
+                    }
+                    if AppState.selected-index >= 0: VerticalLayout {
+                        spacing: 14px;
+                        HorizontalLayout {
+                            spacing: 10px;
+                            StatusGlyph { status: AppState.sel-status; size: 20px; }
+                            Text { text: AppState.sel-title; color: Theme.text; font-size: 16px; font-weight: 600; wrap: word-wrap; horizontal-stretch: 1; }
+                        }
+                        Badge { text: AppState.sel-status-text; tone: Theme.status-color(AppState.sel-status); width: self.preferred-width; }
+                        Text { text: AppState.sel-summary; color: Theme.text; font-size: 13px; wrap: word-wrap; }
+                        DetailBlock { label: Tr.t("error.cause"); body: AppState.sel-cause; }
+                        DetailBlock { label: Tr.t("error.suggestion"); body: AppState.sel-suggestion; }
+                        DetailBlock { label: Tr.t("detail.log"); body: AppState.sel-details; mono: true; }
+                        DetailBlock { label: Tr.t("detail.evidence"); body: AppState.sel-evidence; mono: true; }
+                        Text { text: AppState.sel-meta; color: Theme.muted; font-size: 11px; }
+                        if AppState.sel-title == Tr.t("check.repro.rebuild"): Button {
+                            text: Tr.t("repro.analyse");
+                            icon: @image-url("../icons/git.svg");
+                            clicked => { AppState.open-repro(AppState.detail-id); }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
