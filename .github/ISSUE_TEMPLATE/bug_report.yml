@@ -1,0 +1,47 @@
+name: Bug report
+description: Something in ReleaseVerity does not work as documented.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. If this is a **security vulnerability**, do not file it here — see [SECURITY.md](../blob/main/SECURITY.md).
+  - type: input
+    id: version
+    attributes:
+      label: ReleaseVerity version
+      description: Output of `releaseverity version`.
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options: [Desktop app, CLI, Repro Engine, ShipCheck Engine, GitHub integration, Installer / portable build, Documentation]
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Exact commands or clicks. Include the `releaseverity doctor` output.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / report
+      description: Relevant lines from the log folder (Settings → Storage → Open logs folder) or the JSON report. Remove secrets.
+      render: text
+  - type: input
+    id: os
+    attributes:
+      label: Windows version and edition
+      placeholder: Windows 11 Pro 24H2
