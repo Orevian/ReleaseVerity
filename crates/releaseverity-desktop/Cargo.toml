@@ -1,0 +1,25 @@
+[package]
+name = "releaseverity-desktop"
+description = "ReleaseVerity desktop application (native Slint UI)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+build = "build.rs"
+
+[[bin]]
+name = "releaseverity-desktop"
+path = "src/main.rs"
+
+[dependencies]
+releaseverity-services = { path = "../releaseverity-services" }
+slint = { version = "1.12", default-features = false, features = ["std", "backend-winit", "renderer-femtovg", "renderer-software", "compat-1-2"] }
+anyhow.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+rfd = { version = "0.15", default-features = false }
+png = "0.17"
+
+[build-dependencies]
+slint-build = "1.12"
+winresource = "0.1"
+
