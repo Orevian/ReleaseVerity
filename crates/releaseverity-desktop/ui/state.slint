@@ -1,0 +1,241 @@
+// Data shapes and the application state shared between Rust and the pages.
+// Every value shown in the UI is set from real data by Rust; nothing here is sample data.
+
+export struct RunRow {
+    id: int,
+    project: string,
+    tag: string,
+    score: int,          // -1 = none
+    verdict: int,        // 0 none · 1 verified · 2 warnings · 3 failed · 4 inconclusive
+    verdict-text: string,
+    started: string,
+    duration: string,
+    state: string,
+}
+
+export struct ProjectRow {
+    name: string,
+    repo: string,
+    branch: string,
+    latest-release: string,
+    verdict: int,
+    verdict-text: string,
+    last-run: string,
+    score: int,
+    warnings: int,
+    failures: int,
+}
+
+export struct CheckRow {
+    kind: int,           // 0 = group header, 1 = check
+    index: int,          // index into the run's results (for kind 1)
+    title: string,
+    summary: string,
+    status: int,         // 0 none · 1 pass · 2 warn · 3 fail · 4 skipped · 5 error
+    env: string,
+}
+
+export struct MatrixRow {
+    label: string,
+    status: [int],       // one per environment
+    result-index: [int], // index into results, -1 = not run
+}
+
+export struct EnvRow {
+    id: string,
+    name: string,
+    isolation: string,
+    available: bool,
+    detail: string,
+}
+
+export struct ToolRow {
+    name: string,
+    version: string,
+    found: bool,
+    purpose: string,
+}
+
+export struct ArtifactRow {
+    name: string,
+    project: string,
+    tag: string,
+    kind: string,
+    size: string,
+    sha256: string,
+    path: string,
+}
+
+export struct ReportRow {
+    id: int,
+    project: string,
+    tag: string,
+    format: string,
+    created: string,
+    path: string,
+}
+
+export struct LiveStep {
+    title: string,
+    env: string,
+    status: int,         // -1 pending · 0 running · 1 pass · 2 warn · 3 fail · 4 skipped · 5 error
+    message: string,
+}
+
+export struct RegionRow {
+    name: string,
+    share: string,
+    changed: string,
+    bytes: string,
+    share-value: float,
+}
+
+export struct SettingRow {
+    section: string,
+    key: string,
+    label: string,
+    hint: string,
+    kind: int,           // 0 text · 1 switch · 2 choice · 3 number
+    value: string,
+    options: [string],
+}
+
+export global AppState {
+    // ---- navigation -------------------------------------------------------
+    // 0 dashboard · 1 projects · 2 releases · 3 runs · 4 environments · 5 artifacts · 6 reports · 7 settings
+    // 10 run detail · 11 new verification · 12 live run · 13 reproducibility
+    in-out property <int> page: 0;
+    in-out property <int> nav-section: 0;
+    callback navigate(int);
+
+    // ---- dashboard ---------------------------------------------------------
+    in property <int> projects-count;
+    in property <int> verified-count;
+    in property <int> failed-count;
+    in property <int> warning-count;
+    in property <int> inconclusive-count;
+    in property <int> health: -1;
+    in property <[RunRow]> recent-runs;
+
+    // ---- lists -------------------------------------------------------------
+    in property <[ProjectRow]> projects;
+    in property <[RunRow]> runs;
+    in property <[RunRow]> releases;
+    in property <[EnvRow]> envs;
+    in property <[ToolRow]> tools;
+    in property <[ArtifactRow]> artifacts;
+    in property <[ReportRow]> reports;
+    callback open-run(int);
+    in-out property <bool> proj-form-open: false;
+    in-out property <string> proj-name;
+    in-out property <string> proj-repo;
+    in-out property <string> proj-branch: "main";
+    in property <string> proj-error;
+    callback project-save();
+    callback project-browse();
+    callback remove-project(string);
+    callback verify-project(string);
+    callback open-report(string);
+    callback open-folder(string);
+    callback generate-report(int, string);
+    callback refresh();
+
+    // ---- run detail ---------------------------------------------------------
+    in property <int> detail-id;
+    in property <string> detail-title;
+    in property <string> detail-subtitle;
+    in property <int> detail-score: -1;
+    in property <int> detail-verdict;
+    in property <string> detail-verdict-text;
+    in property <string> detail-meta;
+    in property <[CheckRow]> detail-rows;
+    in property <[string]> matrix-envs;
+    in property <[MatrixRow]> matrix-rows;
+    in property <int> selected-index: -1;
+    in property <string> sel-title;
+    in property <int> sel-status;
+    in property <string> sel-status-text;
+    in property <string> sel-summary;
+    in property <string> sel-cause;
+    in property <string> sel-suggestion;
+    in property <string> sel-details;
+    in property <string> sel-evidence;
+    in property <string> sel-meta;
+    callback select-check(int);
+    callback open-repro(int);
+
+    // ---- reproducibility ----------------------------------------------------
+    in property <[int]> pipe-status;           // source · commit · environment · build · artifact
+    in property <[string]> pipe-text;
+    in-out property <string> repro-release;
+    in-out property <string> repro-local;
+    in property <string> repro-release-hash;
+    in property <string> repro-local-hash;
+    in property <int> repro-result;            // 0 not run · 1 reproducible · 3 not reproducible · 5 error
+    in property <string> repro-result-text;
+    in property <string> repro-message;
+    in property <[RegionRow]> repro-regions;
+    in property <[string]> repro-causes;
+    in property <bool> repro-busy;
+    callback pick-file(string);                // which field: "release" | "local"
+    callback repro-compare();
+
+    // ---- new verification wizard -------------------------------------------
+    in-out property <int> wiz-step: 0;
+    in-out property <int> wiz-source: 0;       // 0 GitHub · 1 local · 2 package only
+    in-out property <string> wiz-repo;
+    in-out property <string> wiz-tag;
+    in property <[string]> wiz-tags;
+    in property <string> wiz-tags-note;
+    in-out property <bool> wiz-source-check: true;
+    in-out property <bool> wiz-provenance: true;
+    in-out property <bool> wiz-signatures: true;
+    in-out property <bool> wiz-sbom: true;
+    in-out property <bool> wiz-repro: false;
+    in-out property <bool> wiz-install: true;
+    in-out property <bool> wiz-runtime: true;
+    in-out property <bool> wiz-smoke: true;
+    in-out property <bool> wiz-docs: true;
+    in-out property <int> wiz-env: 0;          // 0 auto · 1 appcontainer · 2 windows-sandbox · 3 host
+    in-out property <string> wiz-package;
+    in-out property <string> wiz-assets;
+    in-out property <string> wiz-rebuilt;
+    in-out property <string> wiz-smoke-text;
+    in-out property <bool> wiz-gui;
+    in property <string> wiz-error;
+    in property <string> wiz-summary;
+    in property <string> wiz-env-note;
+    callback wiz-pick(string);                 // "repo" | "package" | "assets" | "rebuilt"
+    callback wiz-load-tags();
+    callback wiz-next();
+    callback wiz-start();
+    callback wiz-reset();
+
+    // ---- live run ----------------------------------------------------------
+    in property <string> live-title;
+    in property <[LiveStep]> live-steps;
+    in property <string> live-message;
+    in property <bool> live-running;
+    in property <int> live-done;
+    in property <int> live-total;
+    callback live-cancel();
+
+    // ---- settings ------------------------------------------------------------
+    in-out property <int> settings-section: 0;
+    in property <[SettingRow]> settings-rows;
+    in property <string> settings-note;
+    callback setting-changed(string, string);
+    callback refresh-settings();
+    in property <string> gh-status;
+    in property <bool> gh-connected;
+    in property <bool> gh-busy;
+    in-out property <string> gh-token;
+    callback gh-connect();
+    callback gh-disconnect();
+
+    // ---- misc ---------------------------------------------------------------
+    in property <string> toast;
+    in property <string> version;
+    in property <string> data-dir;
+    callback copy-text(string);
+}
