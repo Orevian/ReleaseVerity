@@ -1,0 +1,21 @@
+[package]
+name = "releaseverity-cli"
+description = "ReleaseVerity command line interface"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "releaseverity"
+path = "src/main.rs"
+
+[dependencies]
+releaseverity-services = { path = "../releaseverity-services" }
+anyhow.workspace = true
+clap.workspace = true
+serde_json.workspace = true
+enable-ansi-support = "0.2"
+
+[dev-dependencies]
+tempfile.workspace = true
+
