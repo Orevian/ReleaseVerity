@@ -1,0 +1,45 @@
+// Design tokens. Developer-tool look (GitHub Desktop / Linear / JetBrains):
+// flat panels, 1px borders, small radii, no gradients, restrained colour.
+
+export global Theme {
+    in-out property <bool> dark: true;
+
+    out property <color> bg: dark ? #0d1117 : #ffffff;
+    out property <color> sidebar: dark ? #010409 : #f6f8fa;
+    out property <color> panel: dark ? #161b22 : #ffffff;
+    out property <color> panel-alt: dark ? #1c2128 : #f6f8fa;
+    out property <color> border: dark ? #30363d : #d0d7de;
+    out property <color> border-strong: dark ? #484f58 : #afb8c1;
+    out property <color> text: dark ? #e6edf3 : #1f2328;
+    out property <color> muted: dark ? #8b949e : #656d76;
+    out property <color> accent: dark ? #2f81f7 : #0969da;
+    out property <color> accent-hover: dark ? #4090ff : #0a5fc4;
+    out property <color> accent-text: #ffffff;
+    out property <color> hover: dark ? #21262d : #eaeef2;
+    out property <color> selected: dark ? #1f2a3a : #ddf4ff;
+    out property <color> pass: dark ? #3fb950 : #1a7f37;
+    out property <color> warn: dark ? #d29922 : #9a6700;
+    out property <color> fail: dark ? #f85149 : #cf222e;
+
+    out property <length> radius: 6px;
+    out property <length> row-height: 38px;
+    out property <string> mono: "Cascadia Mono";
+
+    /// 0 none/pending · 1 pass · 2 warn · 3 fail · 4 skipped · 5 error
+    public pure function status-color(s: int) -> color {
+        if (s == 1) { return pass; }
+        if (s == 2) { return warn; }
+        if (s == 3 || s == 5) { return fail; }
+        return muted;
+    }
+}
+
+// Localisation: the same locales/*.json catalogs the CLI uses. `rev` changes on
+// language switch so every binding that calls Tr.t(...) re-evaluates.
+export global Tr {
+    in property <int> rev: 0;
+    pure callback translate(string, int) -> string;
+    public pure function t(key: string) -> string {
+        return translate(key, rev);
+    }
+}
