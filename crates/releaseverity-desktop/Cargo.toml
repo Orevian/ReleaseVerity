@@ -16,7 +16,7 @@ slint = { version = "1.12", default-features = false, features = ["std", "backen
 anyhow.workspace = true
 serde_json.workspace = true
 chrono.workspace = true
-rfd = { version = "0.15", default-features = false }
+rfd = { version = "0.17", default-features = false }
 png = "0.17"
 
 [build-dependencies]
