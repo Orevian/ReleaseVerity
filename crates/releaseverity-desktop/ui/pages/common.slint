@@ -1,0 +1,99 @@
+import { Theme, Tr } from "../theme.slint";
+import { AppState, RunRow } from "../state.slint";
+import { Badge, VerdictBadge, ScoreBar, Panel, Divider, EmptyState, Button, IconButton, SectionLabel, Mono, Icon } from "../widgets.slint";
+import { ScrollView } from "std-widgets.slint";
+
+/// Rows of verification runs. Clicking a row opens its release detail.
+export component RunTable inherits Panel {
+    in property <[RunRow]> rows;
+    in property <bool> show-header: true;
+    in property <string> empty-title;
+    in property <string> empty-body;
+    callback new-verification();
+
+    VerticalLayout {
+        if root.show-header: Rectangle {
+            height: 32px;
+            background: Theme.panel-alt;
+            border-radius: Theme.radius;
+            HorizontalLayout {
+                padding-left: 16px;
+                padding-right: 16px;
+                spacing: 12px;
+                SectionLabel { text: Tr.t("col.project"); horizontal-stretch: 2; vertical-alignment: center; }
+                SectionLabel { text: Tr.t("col.release"); width: 100px; vertical-alignment: center; }
+                SectionLabel { text: Tr.t("col.score"); width: 130px; vertical-alignment: center; }
+                SectionLabel { text: Tr.t("col.status"); width: 170px; vertical-alignment: center; }
+                SectionLabel { text: Tr.t("col.started"); width: 120px; vertical-alignment: center; }
+                SectionLabel { text: Tr.t("col.duration"); width: 60px; vertical-alignment: center; horizontal-alignment: right; }
+            }
+        }
+        if root.rows.length == 0: EmptyState {
+            icon: @image-url("../icons/shield.svg");
+            title: root.empty-title;
+            body: root.empty-body;
+            action: Tr.t("action.new-verification");
+            clicked => {
+                root.new-verification();
+            }
+        }
+        for r[i] in root.rows: Rectangle {
+            height: Theme.row-height;
+            background: ta.has-hover ? Theme.hover : transparent;
+            if i > 0: Divider { y: 0px; }
+            HorizontalLayout {
+                padding-left: 16px;
+                padding-right: 16px;
+                spacing: 12px;
+                Text {
+                    text: r.project;
+                    color: Theme.text;
+                    font-size: 13px;
+                    font-weight: 500;
+                    overflow: elide;
+                    vertical-alignment: center;
+                    horizontal-stretch: 2;
+                }
+                Mono { text: r.tag; width: 100px; vertical-alignment: center; overflow: elide; }
+                ScoreBar {
+                    width: 130px;
+                    score: r.score;
+                    verdict: r.verdict;
+                    y: (parent.height - self.height) / 2;
+                }
+                Rectangle {
+                    width: 170px;
+                    HorizontalLayout {
+                        alignment: start;
+                        VerdictBadge {
+                            text: r.verdict-text;
+                            verdict: r.verdict;
+                            y: (parent.height - self.height) / 2;
+                        }
+                    }
+                }
+                Text { text: r.started; color: Theme.muted; font-size: 12px; width: 120px; vertical-alignment: center; overflow: elide; }
+                Text { text: r.duration; color: Theme.muted; font-size: 12px; width: 60px; vertical-alignment: center; horizontal-alignment: right; }
+            }
+            ta := TouchArea {
+                mouse-cursor: pointer;
+                clicked => {
+                    AppState.open-run(r.id);
+                }
+            }
+        }
+    }
+}
+
+/// Title row with optional right-aligned actions as children.
+export component PageHeader inherits HorizontalLayout {
+    in property <string> title;
+    in property <string> subtitle;
+    spacing: 12px;
+    VerticalLayout {
+        horizontal-stretch: 1;
+        spacing: 3px;
+        Text { text: root.title; color: Theme.text; font-size: 20px; font-weight: 600; }
+        if root.subtitle != "": Text { text: root.subtitle; color: Theme.muted; font-size: 13px; }
+    }
+}
