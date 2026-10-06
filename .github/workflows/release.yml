@@ -44,7 +44,7 @@ jobs:
           subject-path: |
             dist/artifacts/ReleaseVerity-*-portable-x64.zip
             dist/artifacts/ReleaseVerity-Setup-x64.exe
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: windows
           path: dist/artifacts/*
@@ -62,7 +62,7 @@ jobs:
           mkdir out
           cp target/release/releaseverity out/releaseverity-linux-x64
           (cd out && sha256sum releaseverity-linux-x64 > releaseverity-linux-x64.sha256)
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: linux
           path: out/*
