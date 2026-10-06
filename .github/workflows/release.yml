@@ -39,7 +39,7 @@ jobs:
           $zip = (Get-ChildItem dist/artifacts -Filter 'ReleaseVerity-*-portable-x64.zip').FullName
           dist/portable/ReleaseVerity/cli/releaseverity.exe shipcheck run --package $zip --exe cli\releaseverity.exe --launch-args version --smoke "version => releaseverity" --env appcontainer --strict
       - name: Attest build provenance
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
             dist/artifacts/ReleaseVerity-*-portable-x64.zip
