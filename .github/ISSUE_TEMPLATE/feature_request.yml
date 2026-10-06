@@ -1,0 +1,27 @@
+name: Feature request
+description: Suggest an improvement.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem do you want to solve?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Proposed solution
+  - type: textarea
+    id: real
+    attributes:
+      label: How can it be measured for real?
+      description: ReleaseVerity never fakes results. Describe the real operation the feature would perform (what is executed, read or compared).
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Applies to
+      options:
+        - label: Desktop app
+        - label: CLI
+        - label: GitHub Action
