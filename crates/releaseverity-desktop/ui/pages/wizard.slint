@@ -1,0 +1,281 @@
+import { Theme, Tr } from "../theme.slint";
+import { AppState, LiveStep } from "../state.slint";
+import { Panel, Button, IconButton, TextField, TextArea, CheckBox, Choice, StatusGlyph, Badge, SectionLabel, Divider, Mono, Icon } from "../widgets.slint";
+import { ScrollView } from "std-widgets.slint";
+
+component StepDot inherits Rectangle {
+    in property <int> index;
+    in property <string> label;
+    in property <int> current;
+    horizontal-stretch: 1;
+    height: 30px;
+    HorizontalLayout {
+        spacing: 8px;
+        Rectangle {
+            width: 22px;
+            height: 22px;
+            y: 4px;
+            border-radius: 11px;
+            border-width: 1px;
+            border-color: root.index <= root.current ? Theme.accent : Theme.border-strong;
+            background: root.index < root.current ? Theme.accent : (root.index == root.current ? Theme.selected : Theme.bg);
+            if root.index < root.current: Icon { source: @image-url("../icons/check.svg"); size: 12px; tint: Theme.accent-text; x: 4px; y: 4px; }
+            if root.index >= root.current: Text {
+                text: root.index + 1;
+                color: root.index == root.current ? Theme.accent : Theme.muted;
+                font-size: 11px;
+                font-weight: 600;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+        Text {
+            text: root.label;
+            color: root.index == root.current ? Theme.text : Theme.muted;
+            font-size: 12px;
+            font-weight: root.index == root.current ? 600 : 400;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+    }
+}
+
+component Field inherits VerticalLayout {
+    in property <string> label;
+    in property <string> hint;
+    spacing: 5px;
+    Text { text: root.label; color: Theme.muted; font-size: 12px; font-weight: 600; }
+    @children
+    if root.hint != "": Text { text: root.hint; color: Theme.muted; font-size: 11px; wrap: word-wrap; }
+}
+
+export component WizardPage inherits Rectangle {
+    background: Theme.bg;
+    VerticalLayout {
+        padding: 28px;
+        spacing: 18px;
+        HorizontalLayout {
+            spacing: 8px;
+            IconButton { icon: @image-url("../icons/chevron.svg"); rotate: 180deg; clicked => { AppState.navigate(0); } }
+            Text { text: Tr.t("action.new-verification"); color: Theme.text; font-size: 20px; font-weight: 600; vertical-alignment: center; }
+        }
+
+        // ---- stepper --------------------------------------------------------
+        Panel {
+            height: 46px;
+            VerticalLayout {
+                alignment: center;
+            HorizontalLayout {
+                padding-left: 16px;
+                padding-right: 16px;
+                spacing: 12px;
+                StepDot { index: 0; current: AppState.wiz-step; label: Tr.t("wiz.step.source"); }
+                StepDot { index: 1; current: AppState.wiz-step; label: Tr.t("wiz.step.release"); }
+                StepDot { index: 2; current: AppState.wiz-step; label: Tr.t("wiz.step.checks"); }
+                StepDot { index: 3; current: AppState.wiz-step; label: Tr.t("wiz.step.environment"); }
+                StepDot { index: 4; current: AppState.wiz-step; label: Tr.t("wiz.step.start"); }
+            }
+            }
+        }
+
+        // ---- step body ------------------------------------------------------
+        Panel {
+            vertical-stretch: 1;
+            ScrollView {
+                content-width: self.visible-width;
+                VerticalLayout {
+                    padding: 22px;
+                    spacing: 14px;
+                    alignment: start;
+
+                    // 0 · source
+                    if AppState.wiz-step == 0: VerticalLayout {
+                        spacing: 10px;
+                        Text { text: Tr.t("wiz.source.title"); color: Theme.text; font-size: 15px; font-weight: 600; }
+                        Choice {
+                            text: Tr.t("wiz.source.github");
+                            note: Tr.t("wiz.source.github.note");
+                            selected: AppState.wiz-source == 0;
+                            clicked => { AppState.wiz-source = 0; }
+                        }
+                        Choice {
+                            text: Tr.t("wiz.source.local");
+                            note: Tr.t("wiz.source.local.note");
+                            selected: AppState.wiz-source == 1;
+                            clicked => { AppState.wiz-source = 1; }
+                        }
+                        Choice {
+                            text: Tr.t("wiz.source.package");
+                            note: Tr.t("wiz.source.package.note");
+                            selected: AppState.wiz-source == 2;
+                            clicked => { AppState.wiz-source = 2; }
+                        }
+                        if AppState.wiz-source != 2: Field {
+                            label: AppState.wiz-source == 0 ? Tr.t("wiz.repo.url") : Tr.t("wiz.repo.path");
+                            HorizontalLayout {
+                                spacing: 8px;
+                                TextField {
+                                    text <=> AppState.wiz-repo;
+                                    mono: true;
+                                    placeholder: AppState.wiz-source == 0 ? "https://github.com/owner/repo" : "C:\\path\\to\\repo";
+                                }
+                                if AppState.wiz-source == 1: Button { icon: @image-url("../icons/folder-open.svg"); text: Tr.t("action.browse"); clicked => { AppState.wiz-pick("repo"); } }
+                            }
+                        }
+                        if AppState.wiz-source == 2: Field {
+                            label: Tr.t("wiz.package.path");
+                            HorizontalLayout {
+                                spacing: 8px;
+                                TextField { text <=> AppState.wiz-package; mono: true; placeholder: "C:\\path\\to\\app-setup.exe  ·  app.zip  ·  folder"; }
+                                Button { icon: @image-url("../icons/folder-open.svg"); text: Tr.t("action.browse"); clicked => { AppState.wiz-pick("package"); } }
+                            }
+                        }
+                    }
+
+                    // 1 · release
+                    if AppState.wiz-step == 1: VerticalLayout {
+                        spacing: 12px;
+                        Text { text: Tr.t("wiz.release.title"); color: Theme.text; font-size: 15px; font-weight: 600; }
+                        if AppState.wiz-source == 2: Text { text: Tr.t("wiz.release.package-only"); color: Theme.muted; font-size: 13px; wrap: word-wrap; }
+                        if AppState.wiz-source != 2: Field {
+                            label: Tr.t("wiz.release.tag");
+                            HorizontalLayout {
+                                spacing: 8px;
+                                TextField { text <=> AppState.wiz-tag; mono: true; placeholder: "v1.4.0"; }
+                                Button { icon: @image-url("../icons/refresh.svg"); text: Tr.t("wiz.release.load"); clicked => { AppState.wiz-load-tags(); } }
+                            }
+                        }
+                        if AppState.wiz-source != 2 && AppState.wiz-tags-note != "": Text { text: AppState.wiz-tags-note; color: Theme.muted; font-size: 12px; wrap: word-wrap; }
+                        if AppState.wiz-source != 2 && AppState.wiz-tags.length > 0: VerticalLayout {
+                            spacing: 6px;
+                            SectionLabel { text: Tr.t("wiz.release.available"); }
+                            Rectangle {
+                                height: min(self.preferred-height, 220px);
+                                Panel {
+                                    ScrollView {
+                                        content-width: self.visible-width;
+                                        VerticalLayout {
+                                            for tag[i] in AppState.wiz-tags: Rectangle {
+                                                height: 32px;
+                                                background: tag == AppState.wiz-tag ? Theme.selected : (tta.has-hover ? Theme.hover : transparent);
+                                                HorizontalLayout {
+                                                    padding-left: 14px;
+                                                    Mono { text: tag; vertical-alignment: center; }
+                                                }
+                                                tta := TouchArea { mouse-cursor: pointer; clicked => { AppState.wiz-tag = tag; } }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Field {
+                            label: Tr.t("wiz.assets.label");
+                            hint: Tr.t("wiz.assets.hint");
+                            HorizontalLayout {
+                                spacing: 8px;
+                                TextField { text <=> AppState.wiz-assets; mono: true; placeholder: "C:\\path\\to\\release-assets"; }
+                                Button { icon: @image-url("../icons/folder-open.svg"); text: Tr.t("action.browse"); clicked => { AppState.wiz-pick("assets"); } }
+                            }
+                        }
+                    }
+
+                    // 2 · checks
+                    if AppState.wiz-step == 2: VerticalLayout {
+                        spacing: 4px;
+                        Text { text: Tr.t("wiz.checks.title"); color: Theme.text; font-size: 15px; font-weight: 600; }
+                        Rectangle { height: 6px; }
+                        CheckBox { text: Tr.t("check.source.integrity"); checked <=> AppState.wiz-source-check; enabled: AppState.wiz-source != 2; }
+                        CheckBox { text: Tr.t("check.provenance"); checked <=> AppState.wiz-provenance; }
+                        CheckBox { text: Tr.t("check.artifact.signature"); checked <=> AppState.wiz-signatures; }
+                        CheckBox { text: Tr.t("check.sbom"); checked <=> AppState.wiz-sbom; }
+                        CheckBox { text: Tr.t("check.repro.rebuild"); note: Tr.t("wiz.checks.repro.note"); checked <=> AppState.wiz-repro; }
+                        CheckBox { text: Tr.t("check.docs"); checked <=> AppState.wiz-docs; enabled: AppState.wiz-source != 2; }
+                        CheckBox { text: Tr.t("check.install.install"); checked <=> AppState.wiz-install; }
+                        CheckBox { text: Tr.t("check.runtime.launch"); checked <=> AppState.wiz-runtime; }
+                        CheckBox { text: Tr.t("check.runtime.smoke"); checked <=> AppState.wiz-smoke; }
+                        CheckBox { text: Tr.t("check.performance"); note: Tr.t("wiz.checks.performance.note"); checked: false; enabled: false; }
+                    }
+
+                    // 3 · environment
+                    if AppState.wiz-step == 3: VerticalLayout {
+                        spacing: 10px;
+                        Text { text: Tr.t("wiz.env.title"); color: Theme.text; font-size: 15px; font-weight: 600; }
+                        Choice { text: Tr.t("wiz.env.auto"); note: Tr.t("wiz.env.auto.note"); selected: AppState.wiz-env == 0; clicked => { AppState.wiz-env = 0; } }
+                        Choice { text: Tr.t("wiz.env.appcontainer"); note: Tr.t("wiz.env.appcontainer.note"); selected: AppState.wiz-env == 1; clicked => { AppState.wiz-env = 1; } }
+                        Choice { text: Tr.t("wiz.env.sandbox"); note: Tr.t("wiz.env.sandbox.note"); selected: AppState.wiz-env == 2; clicked => { AppState.wiz-env = 2; } }
+                        Choice { text: Tr.t("wiz.env.host"); note: Tr.t("wiz.env.host.note"); selected: AppState.wiz-env == 3; clicked => { AppState.wiz-env = 3; } }
+                        if AppState.wiz-env-note != "": Text { text: AppState.wiz-env-note; color: Theme.warn; font-size: 12px; wrap: word-wrap; }
+                        if AppState.wiz-install || AppState.wiz-runtime || AppState.wiz-smoke: VerticalLayout {
+                            spacing: 12px;
+                            Divider { }
+                            if AppState.wiz-source != 2: Field {
+                                label: Tr.t("wiz.package.path");
+                                HorizontalLayout {
+                                    spacing: 8px;
+                                    TextField { text <=> AppState.wiz-package; mono: true; placeholder: "C:\\path\\to\\app-setup.exe  ·  app.zip  ·  folder"; }
+                                    Button { icon: @image-url("../icons/folder-open.svg"); text: Tr.t("action.browse"); clicked => { AppState.wiz-pick("package"); } }
+                                }
+                            }
+                            Field {
+                                label: Tr.t("wiz.smoke.label");
+                                hint: Tr.t("wiz.smoke.hint");
+                                TextArea { text <=> AppState.wiz-smoke-text; min-height: 84px; placeholder: "--version => 1.4.0\n--help"; }
+                            }
+                            CheckBox { text: Tr.t("wiz.gui"); note: Tr.t("wiz.gui.note"); checked <=> AppState.wiz-gui; }
+                        }
+                        if AppState.wiz-repro: Field {
+                            label: Tr.t("wiz.rebuilt.label");
+                            hint: Tr.t("wiz.rebuilt.hint");
+                            HorizontalLayout {
+                                spacing: 8px;
+                                TextField { text <=> AppState.wiz-rebuilt; mono: true; }
+                                Button { icon: @image-url("../icons/folder-open.svg"); text: Tr.t("action.browse"); clicked => { AppState.wiz-pick("rebuilt"); } }
+                            }
+                        }
+                    }
+
+                    // 4 · summary / start
+                    if AppState.wiz-step == 4: VerticalLayout {
+                        spacing: 10px;
+                        Text { text: Tr.t("wiz.start.title"); color: Theme.text; font-size: 15px; font-weight: 600; }
+                        Text { text: Tr.t("wiz.start.body"); color: Theme.muted; font-size: 13px; wrap: word-wrap; }
+                        Panel {
+                            background: Theme.panel-alt;
+                            VerticalLayout {
+                                padding: 14px;
+                                spacing: 6px;
+                                Text { text: AppState.wiz-summary; color: Theme.text; font-size: 12px; font-family: Theme.mono; wrap: word-wrap; }
+                            }
+                        }
+                    }
+
+                    if AppState.wiz-error != "": Text { text: AppState.wiz-error; color: Theme.fail; font-size: 13px; wrap: word-wrap; }
+                }
+            }
+        }
+
+        // ---- footer ---------------------------------------------------------
+        HorizontalLayout {
+            padding-bottom: 20px;
+            spacing: 10px;
+            Rectangle { horizontal-stretch: 1; }
+            Button {
+                text: Tr.t("action.back");
+                enabled: AppState.wiz-step > 0;
+                clicked => { AppState.wiz-step = AppState.wiz-step - 1; }
+            }
+            if AppState.wiz-step < 4: Button {
+                text: Tr.t("action.next");
+                primary: true;
+                clicked => { AppState.wiz-next(); }
+            }
+            if AppState.wiz-step == 4: Button {
+                text: Tr.t("wiz.start.button");
+                icon: @image-url("../icons/play.svg");
+                primary: true;
+                clicked => { AppState.wiz-start(); }
+            }
+        }
+    }
+}
