@@ -1,0 +1,184 @@
+import { Theme, Tr } from "../theme.slint";
+import { AppState, SettingRow } from "../state.slint";
+import { Panel, Button, TextField, Switch, Divider, SectionLabel, Mono, Icon } from "../widgets.slint";
+import { ScrollView } from "std-widgets.slint";
+
+/// Segmented choice used for settings with a fixed set of values.
+component Segmented inherits Rectangle {
+    in property <[string]> options;
+    in property <string> value;
+    callback picked(string);
+    height: 30px;
+    border-radius: Theme.radius;
+    border-width: 1px;
+    border-color: Theme.border-strong;
+    background: Theme.bg;
+    HorizontalLayout {
+        for o in root.options: Rectangle {
+            background: o == root.value ? Theme.accent : (oa.has-hover ? Theme.hover : transparent);
+            border-radius: 5px;
+            min-width: 64px;
+            HorizontalLayout {
+                padding-left: 12px;
+                padding-right: 12px;
+                Text {
+                    text: o;
+                    color: o == root.value ? Theme.accent-text : Theme.text;
+                    font-size: 12px;
+                    font-weight: o == root.value ? 600 : 400;
+                    vertical-alignment: center;
+                }
+            }
+            oa := TouchArea { mouse-cursor: pointer; clicked => { root.picked(o); } }
+        }
+    }
+}
+
+component SettingItem inherits Rectangle {
+    in property <SettingRow> item;
+    in property <bool> first;
+    height: item.hint == "" ? 54px : 68px;
+    if !root.first: Divider { y: 0px; }
+    HorizontalLayout {
+        padding-left: 18px;
+        padding-right: 18px;
+        spacing: 24px;
+        VerticalLayout {
+            horizontal-stretch: 1;
+            alignment: center;
+            spacing: 3px;
+            Text { text: item.label; color: Theme.text; font-size: 13px; font-weight: 500; }
+            if item.hint != "": Text { text: item.hint; color: Theme.muted; font-size: 11px; wrap: word-wrap; }
+        }
+        Rectangle {
+            width: 300px;
+            // 0 text · 3 number
+            if item.kind == 0 || item.kind == 3: TextField {
+                y: (parent.height - self.height) / 2;
+                text: item.value;
+                mono: item.kind == 3;
+                accepted(v) => { AppState.setting-changed(item.key, v); }
+            }
+            // 1 switch
+            if item.kind == 1: HorizontalLayout {
+                alignment: end;
+                Switch {
+                    y: (parent.height - self.height) / 2;
+                    checked: item.value == "true";
+                    toggled(c) => { AppState.setting-changed(item.key, c ? "true" : "false"); }
+                }
+            }
+            // 2 choice
+            if item.kind == 2: HorizontalLayout {
+                alignment: end;
+                Segmented {
+                    y: (parent.height - self.height) / 2;
+                    options: item.options;
+                    value: item.value;
+                    picked(v) => { AppState.setting-changed(item.key, v); }
+                }
+            }
+        }
+    }
+}
+
+export component SettingsPage inherits Rectangle {
+    background: Theme.bg;
+    // Sections shown in the left list (order matches Rust's `settings_sections`).
+    property <[string]> sections: [
+        Tr.t("settings.general"), Tr.t("settings.language"), Tr.t("settings.appearance"), Tr.t("settings.verification"),
+        Tr.t("settings.environments"), Tr.t("settings.github"), Tr.t("settings.security"), Tr.t("settings.storage"),
+        Tr.t("settings.logging"), Tr.t("settings.cli"), Tr.t("settings.advanced"),
+    ];
+    HorizontalLayout {
+        Rectangle {
+            width: 210px;
+            VerticalLayout {
+                padding: 28px;
+                padding-right: 10px;
+                spacing: 2px;
+                alignment: start;
+                Text { text: Tr.t("nav.settings"); color: Theme.text; font-size: 20px; font-weight: 600; }
+                Rectangle { height: 14px; }
+                for s[i] in root.sections: Rectangle {
+                    height: 32px;
+                    border-radius: 6px;
+                    background: AppState.settings-section == i ? Theme.selected : (sa.has-hover ? Theme.hover : transparent);
+                    HorizontalLayout {
+                        padding-left: 10px;
+                        Text {
+                            text: s;
+                            color: AppState.settings-section == i ? Theme.text : Theme.muted;
+                            font-size: 13px;
+                            font-weight: AppState.settings-section == i ? 600 : 400;
+                            vertical-alignment: center;
+                        }
+                    }
+                    sa := TouchArea { mouse-cursor: pointer; clicked => { AppState.settings-section = i; AppState.refresh-settings(); } }
+                }
+            }
+        }
+        ScrollView {
+            content-width: self.visible-width;
+            horizontal-stretch: 1;
+            VerticalLayout {
+                padding: 28px;
+                padding-left: 14px;
+                spacing: 14px;
+                alignment: start;
+                Text { text: root.sections[AppState.settings-section]; color: Theme.text; font-size: 16px; font-weight: 600; }
+                if AppState.settings-note != "": Text { text: AppState.settings-note; color: Theme.muted; font-size: 12px; wrap: word-wrap; }
+                if AppState.settings-rows.length > 0: Panel {
+                    VerticalLayout {
+                        for r[i] in AppState.settings-rows: SettingItem { item: r; first: i == 0; }
+                    }
+                }
+                if AppState.settings-section == 5: Panel {
+                    VerticalLayout {
+                        padding: 18px;
+                        spacing: 10px;
+                        SectionLabel { text: Tr.t("gh.account"); }
+                        HorizontalLayout {
+                            spacing: 8px;
+                            alignment: start;
+                            Icon {
+                                source: AppState.gh-connected ? @image-url("../icons/check.svg") : @image-url("../icons/minus.svg");
+                                tint: AppState.gh-connected ? Theme.pass : Theme.muted;
+                                y: (parent.height - self.height) / 2;
+                            }
+                            Text { text: AppState.gh-status; color: Theme.text; font-size: 13px; wrap: word-wrap; horizontal-stretch: 1; }
+                        }
+                        if !AppState.gh-connected: VerticalLayout {
+                            spacing: 6px;
+                            Text { text: Tr.t("gh.token.label"); color: Theme.muted; font-size: 12px; font-weight: 600; }
+                            HorizontalLayout {
+                                spacing: 8px;
+                                TextField { text <=> AppState.gh-token; password: true; mono: true; placeholder: "ghp_…  /  github_pat_…"; }
+                                Button { text: Tr.t("gh.connect"); primary: true; enabled: !AppState.gh-busy && AppState.gh-token != ""; clicked => { AppState.gh-connect(); } }
+                            }
+                            Text { text: Tr.t("gh.token.hint"); color: Theme.muted; font-size: 11px; wrap: word-wrap; }
+                        }
+                        if AppState.gh-connected: HorizontalLayout {
+                            alignment: start;
+                            Button { text: Tr.t("gh.disconnect"); danger: true; clicked => { AppState.gh-disconnect(); } }
+                        }
+                    }
+                }
+                if AppState.settings-section == 7: Panel {
+                    VerticalLayout {
+                        padding: 18px;
+                        spacing: 10px;
+                        SectionLabel { text: Tr.t("settings.data-dir"); }
+                        Mono { text: AppState.data-dir; wrap: word-wrap; }
+                        HorizontalLayout {
+                            alignment: start;
+                            spacing: 8px;
+                            Button { text: Tr.t("settings.open-data"); icon: @image-url("../icons/folder-open.svg"); clicked => { AppState.open-folder("data"); } }
+                            Button { text: Tr.t("settings.open-logs"); icon: @image-url("../icons/folder-open.svg"); clicked => { AppState.open-folder("logs"); } }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
