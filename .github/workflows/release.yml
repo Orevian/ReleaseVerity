@@ -1,0 +1,89 @@
+name: Release
+
+# Push a tag such as v0.1.0 to publish a release.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write       # create the GitHub Release
+  id-token: write       # build provenance (Sigstore)
+  attestations: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  windows:
+    name: Build Windows (portable + installer)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Tests
+        run: cargo test --workspace --locked
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+      - name: Check the tag matches the product version
+        shell: pwsh
+        run: |
+          $v = (Select-String -Path Cargo.toml -Pattern '^version\s*=\s*"([^"]+)"' | Select-Object -First 1).Matches[0].Groups[1].Value
+          if ("v$v" -ne "${{ github.ref_name }}") { throw "Tag ${{ github.ref_name }} does not match the version $v in Cargo.toml" }
+      - name: Build portable folder, zip, installer, SBOM and checksums
+        shell: pwsh
+        run: scripts/build.ps1 -Target all
+      - name: Self-test the portable build with ReleaseVerity's own sandbox
+        shell: pwsh
+        run: |
+          $zip = (Get-ChildItem dist/artifacts -Filter 'ReleaseVerity-*-portable-x64.zip').FullName
+          dist/portable/ReleaseVerity/cli/releaseverity.exe shipcheck run --package $zip --exe cli\releaseverity.exe --launch-args version --smoke "version => releaseverity" --env appcontainer --strict
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            dist/artifacts/ReleaseVerity-*-portable-x64.zip
+            dist/artifacts/ReleaseVerity-Setup-x64.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/artifacts/*
+          if-no-files-found: error
+
+  linux-cli:
+    name: Build Linux CLI (for the GitHub Action)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release --locked -p releaseverity-cli
+      - run: |
+          mkdir out
+          cp target/release/releaseverity out/releaseverity-linux-x64
+          (cd out && sha256sum releaseverity-linux-x64 > releaseverity-linux-x64.sha256)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: out/*
+
+  publish:
+    name: Publish GitHub Release
+    needs: [windows, linux-cli]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: assets
+          merge-multiple: true
+      - name: Combine checksums
+        run: |
+          cd assets
+          cat releaseverity-linux-x64.sha256 >> SHA256SUMS
+          rm releaseverity-linux-x64.sha256
+          sort -k2 -o SHA256SUMS SHA256SUMS
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: assets/*
+          generate_release_notes: true
+          fail_on_unmatched_files: true
